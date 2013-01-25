@@ -21,16 +21,18 @@
 //11
 
 // You can also just connect the reset pin to +5V or Arduino RESET (we do a software reset)
-#define rst A4
+//#define rst A4
+#define rst 0
 
 // these pins are required
 #define cs A3
 #define cd A2
 #define wr A1
 #define rd A0
+#define BrightnessPin 9
 
 // Uncoment to use software reset
-#define UseSoftwareReset
+//#define UseSoftwareReset
 
 #ifdef UseSoftwareReset
   #define rstpin 7
@@ -38,7 +40,7 @@
 #endif
 
 // define UseDayNightMode if only brightness pin is not used
-#define UseDayNightMode
+//#define UseDayNightMode
 
 // to draw images from the SD card, we will share the hardware SPI interface
 
@@ -49,7 +51,7 @@
 #define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
 #endif 
 
-#define WarningPosition(x, y) 8 + 6 + x * 6, 92 + y * 8
+#define WarningPosition(x, y) x * 6, 175 + y * 8
 
 #define LCD_ROWS 2
 #define LCD_COLS 22 
@@ -116,6 +118,8 @@ class OBDuinoLCD
     void LCDClearBottom(void);
 
     void SwitchDayNightMode(void);
+
+    Adafruit_TFTLCD getTFT(void);
 
     // Additional parameters
     uint16_t BackGroundColor;

@@ -1,8 +1,8 @@
 
 
-/* OBDuino32K  (Requires Atmega328 for your Arduino)
+/* OBDuino-mega  (Requires Atmega2560 for your Arduino)
 
- Copyright (C) 2008-2012
+ Copyright (C) 2008-2013
 
  Main coding/ISO/ELM: Frederic (aka Magister on ecomodder.com)
  ISO Communication Protocol: Russ, Antony, Mike
@@ -10,8 +10,11 @@
  Bugs & Fixes: Antony, Fredric, Mike, Eimantas
  LCD bignum: Frederic based on mpguino code by Dave, Eimantas
  TFT LCD: Eimantas
+ Adafruit TFT/Touchscreen: Favil
 
 Latest Changes
+
+Jan ??th, 2013
 
 Feb 07th, 2012 (v201)
  Day/Night mode switching (with right button).
@@ -284,7 +287,7 @@ To-Do:
 // Comment out to do not use voltage sensor
 // Uncomment to use voltage sensor
 // DEFAULT: commented
-#define BatteryVoltageSensor
+//#define BatteryVoltageSensor
 
 // Define currency symbols 
 #define CurrencyPrintString "$%s"
@@ -362,11 +365,11 @@ To-Do:
 
 #ifdef useST7735
 //xxx if useST7735 is NOT used - next line has to be commented
-  #include <ST7735.h>
+//  #include <ST7735.h>
 //xxx if useST7735 is NOT used - next line has to be commented
-  #inlude <SPI.h>
+//  #inlude <SPI.h>
 //xxx if useST7735 is NOT used - next line has to be commented
-  #include <OBDuinoST7735.h>
+//  #include <OBDuinoST7735.h>
 #endif
 
 // Uncomment to use SD card logging, 
@@ -392,7 +395,7 @@ To-Do:
   // GND          <-> SD 6 GND1   DIRECT
 
 //xxx if useSDCard is NOT used - next line has to be commented
-  #include <FileLogger.h>
+//  #include <FileLogger.h>
 
   // PIDs and data collections goes to "data.log"
   //#define logEveryPid
@@ -441,7 +444,7 @@ void test_buttons(void);
 void get_cost(char *retbuf, byte ctrip);
 
 unsigned long calcTimeDiff(unsigned long start, unsigned long end);
-void logdata(byte throttle_pos);
+//void logdata(byte throttle_pos);
 void get_trip_time(char *retbuf, byte trip, byte time);
 void get_engine_on_time(char *retbuf);
 void save_params_and_display(void);
@@ -895,7 +898,7 @@ typedef struct
   unsigned int gas_price;   // price per unit of fuel in 10th of cents. 905 = $0.905
   unsigned int  tank_size;  // tank size in dL or dgal depending of unit
   byte OutingStopOver;      // Allowable stop over time (in tens of minutes). Exceeding time starts a new outing.
-  byte TripStopOver;        // Allowable stop over time (in hours). Exceeding time starts a new outing.
+  byte TripStopOver;        // Allowable stop over time (in hours). Exceeding time starts a new trip.
   trip_t trip[NBTRIP];      // trip0=tank, trip1=a trip, trip2=outing
   trip_max tripmax[NBTRIP]; // trip0=tank, trip1=a trip, trip2=outing
   screen_t screen[NBSCREEN + BIG_NBSCREEN];  // screen
@@ -908,14 +911,14 @@ params_t;
 params_t params=
 {
   40, // 40 does not work with some LCD, or some misterious problem so try 0 if it does not work
-  1,
-  true,
-  20,
+  0,  // Imperial
+  false, // Don't use comma
+  10,
   100,
   100,
   15,
   1090,
-  450,   
+  120,
   6, // 60 minutes (6 X 10) stop or less will not cause outing reset
   12, // 12 hour stop or less will not cause trip reset
   {
@@ -1209,7 +1212,9 @@ byte elm_command(char *str, const char *cmd)
 
 void elm_init()
 {
+#ifndef DEBUG
   char str[STRLEN];
+#endif
 
   Serial.begin(9600);
   Serial.flush();
@@ -1785,7 +1790,9 @@ boolean get_pid(byte pid, char *retbuf, long *ret)
 {
 #ifdef ELM
   char cmd_str[6];   // to send to ELM
+#ifndef DEBUG
   char str[STRLEN];   // to receive from ELM
+#endif
 #else
   byte cmd[2];    // to send the command
 #endif
@@ -1846,7 +1853,7 @@ boolean get_pid(byte pid, char *retbuf, long *ret)
 #ifdef ELM
   sprintf_P(cmd_str, PSTR("01%02X\r"), pid);
   elm_write(cmd_str);
-#ifndef DEBUG
+  #ifndef DEBUG
   elm_read(str, STRLEN);
   if(elm_check_response(cmd_str, str)!=0)
   {
@@ -1856,7 +1863,8 @@ boolean get_pid(byte pid, char *retbuf, long *ret)
   // first 2 bytes are 0x41 and command, skip them,
   // convert response in hex and return in buf
   elm_compact_response(buf, str);
-#endif
+  #endif
+
 #else
 
   // wait until ISORequestDelay is delayed after last PID read
@@ -1875,7 +1883,7 @@ boolean get_pid(byte pid, char *retbuf, long *ret)
       return false;
     #endif
   }
-#endif
+#endif  // ELM
 
   // a lot of formulas are the same so calculate a default return value here
   // even if it's scrapped after, we still saved 40 bytes!
@@ -2932,7 +2940,7 @@ void accu_trip(void)
   #endif
 }
 
-// this function is needet for normal PID display and BIG PID display
+// this function is needed for normal PID display and BIG PID display
 // as well in this form, compiled size is lower in 70bytes, why?
 void get_pid_internal(char *str, byte pid)
 {
@@ -3099,7 +3107,7 @@ void show_mil_codes(byte Mode, bool Silent)
 
 #ifndef ELM
   Serial.flush();
-#endif;
+#endif
   
 #ifdef ELM
   // retrieve code
@@ -3193,11 +3201,11 @@ void show_mil_codes(byte Mode, bool Silent)
 void get_mil_code_count(bool Silent, byte *count)
 {
   unsigned long n;
-  byte nb;
+//  byte nb;
 
 #ifndef ELM
   Serial.flush();
-#endif;
+#endif
 
   *count = 0;
   if (!get_pid(MIL_CODE, tempStr, &tempLong))
@@ -3869,7 +3877,7 @@ void config_menu(void)
 
           do
           {
-            unsigned long TripStopOver;   // Allowable stop over time (in milliseconds). Exceeding time starts a new outing.
+//            unsigned long TripStopOver;   // Allowable stop over time (in milliseconds). Exceeding time starts a new outing.
 
             if(LEFT_BUTTON_PRESSED && params.TripStopOver > 1)
               params.TripStopOver--;
@@ -4209,6 +4217,11 @@ int convertToFarenheit(int celsius)
   return ((celsius * 9) / 5) + 320;
 }
 
+void test_touchscreen(void)
+{
+
+}
+
 void test_buttons(void)
 {
   // if any button pressed, wait for other buttons if any
@@ -4352,11 +4365,12 @@ void setup()                    // run once, when the sketch starts
   #endif
 #endif
 
+  // We are using a touch screen. These will not be needed.
   // buttons init
   pinMode(lbuttonPin, INPUT);
   pinMode(mbuttonPin, INPUT);
   pinMode(rbuttonPin, INPUT);
-  
+
   // "turn on" the internal pullup resistors
   digitalWrite(lbuttonPin, HIGH);
   digitalWrite(mbuttonPin, HIGH);
@@ -4384,6 +4398,8 @@ void setup()                    // run once, when the sketch starts
 #endif
 
   OBDLCD.InitOBDuinoLCD();
+//  OBDLCD.getTFT().setCursor(0,100);
+//  OBDLCD.getTFT().print("TESTING!");
 
 #ifdef BrightnessPin
   #ifndef skip_ISO_Init
@@ -4406,7 +4422,7 @@ void setup()                    // run once, when the sketch starts
 
   engine_off = engine_on = millis();
 
-  OBDLCD.ClearPrintWarning_P(PSTR("OBDuino32k  v200"));
+  OBDLCD.ClearPrintWarning_P(PSTR("OBDuino-Mega  v201"));
   
 #if !defined( ELM ) && !defined(skip_ISO_Init)
   do // init loop
@@ -4500,7 +4516,7 @@ void setup()                    // run once, when the sketch starts
   static void DisplayLCDPIDS(char *str, char *str2)
 #endif 
 {
-#ifdef useST7735
+#if defined useST7735 || defined useTFTLCD
   static uint8_t display_counter = 0;
   display_counter++;
   
@@ -4608,7 +4624,7 @@ void setup()                    // run once, when the sketch starts
   #endif
 #endif 
 
-  // Show PIDs on LCD screnn only
+  // Show PIDs on LCD screen only
   #ifdef useLiquidCrystal
   if (active_screen<NBSCREEN)
   {
@@ -4751,7 +4767,7 @@ void loop()                     // run over and over again
     accu_trip();
 
     // display on LCD
-    #ifdef useST7735
+    #if defined(useST7735) || defined(useTFTLCD)
       DisplayLCDPIDS();
     #endif    
     #ifdef useLiquidCrystal
@@ -4768,7 +4784,7 @@ void loop()                     // run over and over again
      // for some reason the display on LCD
      if (ISO_InitStep < 2) // Print to LCD if idle only
      {
-       #ifdef useST7735
+       #if defined(useST7735) || defined(useTFTLCD)
          DisplayLCDPIDS();
        #endif    
        #ifdef useLiquidCrystal
@@ -4781,7 +4797,7 @@ void loop()                     // run over and over again
       iso_init();
     #endif
   }
-#else
+#else // not useECUState
 
   // test if engine is started
   has_rpm = (get_pid(ENGINE_RPM, tempStr, &engineRPM) && engineRPM > 0) ? 1 : 0;
@@ -4834,7 +4850,7 @@ void loop()                     // run over and over again
     // this read and assign vss and maf and accumulate trip data
     accu_trip();
     // display on LCD
-    #ifdef useST7735
+    #if defined(useST7735) || defined(useTFTLCD)
       DisplayLCDPIDS();
     #endif    
     #ifdef useLiquidCrystal
@@ -4846,7 +4862,7 @@ void loop()                     // run over and over again
     #ifdef carAlarmScreen
       displayAlarmScreen();
     #else
-      #ifdef useST7735
+      #if defined(useST7735) || defined(useTFTLCD)
         DisplayLCDPIDS();
       #endif    
       #ifdef useLiquidCrystal
@@ -4857,13 +4873,18 @@ void loop()                     // run over and over again
 
 #endif
 
+#ifndef useTFTLCD
   // test buttons
   #ifdef do_ISO_Reinit
     if (ISO_InitStep < 2) // Accept buttons only in idle mode
       test_buttons();
   #else
     test_buttons();
-  #endif  
+  #endif
+#else
+  // Get touchscreen places.
+
+#endif
 }
 
 // Calculate the time difference, and account for roll over too

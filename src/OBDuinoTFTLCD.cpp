@@ -35,12 +35,15 @@ void OBDuinoLCD::InitOBDuinoLCD(void)
   tft.reset();
   uint16_t identifier = tft.readID();
 
+  tft.begin(identifier);
 //  tft.writecommand(ST7735_DISPON);
 
   #if TFTInitSPISpeed != TFTDataSPISpeed
     SPI.setClockDivider(TFTDataSPISpeed);
   #endif
   
+  // Flip upside down. I have the screen mounted oddly
+  tft.setRotation(2);
   tft.fillScreen(BackGroundColor); 
 }
 //--------------------------------------------------------------------------------
@@ -101,6 +104,7 @@ void OBDuinoLCD::ClearPrintWarning_P(const char *string)
 
 void OBDuinoLCD::ClearWarning(void)
 {
+//  tft.setCursor(0,0);
   for (tft_row = 0; tft_row < 2; tft_row++)
     for (tft_position = 0; tft_position < LCD_COLS;)
       PrintWarningChar(0x00);
@@ -231,3 +235,8 @@ void OBDuinoLCD::SwitchDayNightMode(void)
   tft.fillScreen(BackGroundColor); 
 }
 //--------------------------------------------------------------------------------
+
+Adafruit_TFTLCD OBDuinoLCD::getTFT(void)
+{
+    return tft;
+}
