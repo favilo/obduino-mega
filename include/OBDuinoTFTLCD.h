@@ -29,7 +29,7 @@
 #define cd A2
 #define wr A1
 #define rd A0
-#define BrightnessPin 9
+#define BrightnessPin 10
 
 // Uncoment to use software reset
 //#define UseSoftwareReset
@@ -51,10 +51,10 @@
 #define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
 #endif 
 
-#define WarningPosition(x, y) x * 6, 175 + y * 8
+#define WarningPosition(x, y) x * 12, 175 + y * 16
 
-#define LCD_ROWS 2
-#define LCD_COLS 22 
+#define LCD_ROWS 3
+#define LCD_COLS 20
 #define LCD_SPLIT     (LCD_COLS / 2)
 #define LCD_PID_COUNT (LCD_ROWS * 2) 
 
@@ -119,7 +119,7 @@ class OBDuinoLCD
 
     void SwitchDayNightMode(void);
 
-    Adafruit_TFTLCD getTFT(void);
+    Adafruit_TFTLCD* getTFT(void);
 
     // Additional parameters
     uint16_t BackGroundColor;

@@ -204,6 +204,7 @@ To-Do:
 // saving more often could affect EEPROM, feel free to disable
 //#define AutoSave
 
+// TODO: ENABLE EVENTUALLTY
 // Comment to use MC33290 ISO K line chip
 // Uncomment to use ELM327
 #define ELM
@@ -215,7 +216,7 @@ To-Do:
 //#define useL_Line
 
 // Uncomment only one of the below init sequences if using ISO
-#define ISO_9141
+//#define ISO_9141
 //#define ISO_14230_fast
 //#define ISO_14230_slow
 
@@ -361,6 +362,20 @@ To-Do:
     #include <Adafruit_TFTLCD.h>
     #include <SPI.h>
     #include <OBDuinoTFTLCD.h>
+
+    #include "TouchScreen.h"
+
+    #define YP A3
+    #define XM A2
+    #define YM 9
+    #define XP 8
+
+    #define TS_MINX 150
+    #define TS_MINY 120
+    #define TS_MAXX 920
+    #define TS_MAXY 940
+
+    #define BOXSIZE 40
 #endif
 
 #ifdef useST7735
@@ -430,6 +445,10 @@ To-Do:
 #endif // useSDCard 
 
 OBDuinoLCD OBDLCD;
+
+#ifdef useTFTLCD
+TouchScreen touchscreen(XP, YP, XM, YM, 30);
+#endif
 
 // Memory prototypes
 void params_load(void);
@@ -793,7 +812,7 @@ const uchar pid_reslen[] PROGMEM=
 #ifdef use_BIG_font
 #define BIG_NBSCREEN 2
 #else
-#define BIG_NBSCREEN 2
+#define BIG_NBSCREEN 0
 #endif
 
 byte active_screen=0;  // 0,1,2,... selected by left button
@@ -981,6 +1000,8 @@ const char econ_Visual[][9] PROGMEM=
 #define CR      '\r'  // carriage return = 0x0d = 13
 #define PROMPT  '>'
 #define DATA    1  // data with no cr/prompt
+
+#include <ELM327.h>
 #else
 /*
  * for ISO9141-2 Protocol
@@ -1150,7 +1171,7 @@ byte elm_read(char *str, byte size)
   byte i=0;
 
   // wait for something on com port
-  while((b=Serial.read())!=PROMPT && i<size)
+  while((b=Serial1.read())!=PROMPT && i<size)
   {
     if(/*b!=-1 &&*/ b>=' ')
       str[i++]=b;
@@ -1169,7 +1190,7 @@ byte elm_read(char *str, byte size)
 void elm_write(char *str)
 {
   while(*str!=NUL)
-    Serial.write(*str++);
+    Serial1.write(*str++);
 }
 
 // check header byte
@@ -1216,8 +1237,8 @@ void elm_init()
   char str[STRLEN];
 #endif
 
-  Serial.begin(9600);
-  Serial.flush();
+  Serial1.begin(9600);
+  Serial1.flush();
 
 #ifndef DEBUG
   // reset, wait for something and display it
@@ -2995,7 +3016,11 @@ void get_pid_internal(char *str, byte pid)
     get_dist(str, TRIP);
 #ifdef ELM
   else if(pid==BATT_VOLTAGE)
-    elm_command(str, PSTR("ATRV\r"));
+    #ifndef DEBUG // This will freeze up if I don't supply anything through the serial line.
+      elm_command(str, PSTR("ATRV\r"));
+    #else
+      strcpy_P(str, PSTR("111"));
+    #endif
   else if(pid==CAN_STATUS)
     elm_command(str, PSTR("ATCS\r"));
 #endif
@@ -3422,7 +3447,7 @@ byte menu_selection(const char * const menu[], byte arraySize)
     else if (MIDDLE_BUTTON_PRESSED)
     {
       exitMenu = true;
-      //return from function, menu does not need repaiting
+      //return from function, menu does not need repainting
       return selection - 1; 
     }   
 
@@ -3472,7 +3497,7 @@ byte menu_selection(const char * const menu[], byte arraySize)
 void config_menu(void)
 {
   char decs[16];
-  int lastButton = 0;  //we'll use this to speed up button pushes
+//  int lastButton = 0;  //we'll use this to speed up button pushes
   unsigned int fuelUnits = 0;
   unsigned long tankUnits = 0;
   boolean changed = false;
@@ -4217,10 +4242,41 @@ int convertToFarenheit(int celsius)
   return ((celsius * 9) / 5) + 320;
 }
 
+#ifdef useTFTLCD
 void test_touchscreen(void)
 {
+    digitalWrite(13, HIGH);
+    Point p = touchscreen.getPoint();
+    digitalWrite(13, LOW);
 
+    pinMode(XM, OUTPUT);
+    pinMode(YP, OUTPUT);
+
+    if (p.z == 0 ) { // < touchscreen.pressureThreshhold) {
+        return;
+    }
+
+    int16_t h = OBDLCD.getTFT()->height(), w = OBDLCD.getTFT()->width();
+    p.x = map(p.x, TS_MINX, TS_MAXX, w, 0);
+    p.y = map(p.y, TS_MINY, TS_MAXY, h, 0);
+    OBDLCD.getTFT()->setCursor(0,0);
+    OBDLCD.getTFT()->print("X = "); OBDLCD.getTFT()->print(p.x);OBDLCD.getTFT()->print("    ");
+    OBDLCD.getTFT()->print("\nY = "); OBDLCD.getTFT()->print(p.y);OBDLCD.getTFT()->print("    ");
+    OBDLCD.getTFT()->print("\nPressure = "); OBDLCD.getTFT()->println(p.z);OBDLCD.getTFT()->print("    ");
+
+    if (p.y < BOXSIZE) {
+        if (p.x < w / 3)              // First third of screen
+        {
+
+        } else if (p.x < 2 * w / 3) { // Second third
+            needBacklight(true);
+            config_menu();
+        } else {                      // Final third
+
+        }
+    }
 }
+#endif // useTFTLCD
 
 void test_buttons(void)
 {
@@ -4355,26 +4411,34 @@ void needBacklight(boolean On)
 void setup()                    // run once, when the sketch starts
 {
 #ifndef ELM
-  boolean success;
+    boolean success;
 
-  // init pinouts
-  pinMode(K_OUT, OUTPUT);
-  pinMode(K_IN, INPUT);
-  #ifdef useL_Line
-  pinMode(L_OUT, OUTPUT);
-  #endif
+    // init pinouts
+    pinMode(K_OUT, OUTPUT);
+    pinMode(K_IN, INPUT);
+    #ifdef useL_Line
+        pinMode(L_OUT, OUTPUT);
+    #endif
 #endif
+
+    pinMode(LED_BUILTIN, OUTPUT);
+    digitalWrite(LED_BUILTIN, HIGH);   // set the LED on
+    delay(1000);                  // wait for a second
+    digitalWrite(BrightnessPin, HIGH);  // Turn TFT backlight on all the way
+    digitalWrite(LED_BUILTIN, LOW);    // set the LED off
+    delay(1000);                  // wait for a second
+
 
   // We are using a touch screen. These will not be needed.
   // buttons init
-  pinMode(lbuttonPin, INPUT);
-  pinMode(mbuttonPin, INPUT);
-  pinMode(rbuttonPin, INPUT);
+//  pinMode(lbuttonPin, INPUT);
+//  pinMode(mbuttonPin, INPUT);
+//  pinMode(rbuttonPin, INPUT);
 
   // "turn on" the internal pullup resistors
-  digitalWrite(lbuttonPin, HIGH);
-  digitalWrite(mbuttonPin, HIGH);
-  digitalWrite(rbuttonPin, HIGH);
+//  digitalWrite(lbuttonPin, HIGH);
+//  digitalWrite(mbuttonPin, HIGH);
+//  digitalWrite(rbuttonPin, HIGH);
 
   // low level interrupt enable stuff
   // interrupt 1 for the 3 buttons
@@ -4391,15 +4455,20 @@ void setup()                    // run once, when the sketch starts
 #endif
   
   // load parameters
-  params_load();  // if something is wrong, default parms are used
+  // FIXME: params_load seems to freeze arduino, now, all of a sudden
+//  params_load();  // if something is wrong, default parms are used
 
 #ifdef ContrastPin
   analogWrite(ContrastPin, params.contrast);
 #endif
 
+  Serial.begin(9600);
+  Serial.flush();
+  Serial.println("OBDuino!");
   OBDLCD.InitOBDuinoLCD();
 //  OBDLCD.getTFT().setCursor(0,100);
 //  OBDLCD.getTFT().print("TESTING!");
+
 
 #ifdef BrightnessPin
   #ifndef skip_ISO_Init
@@ -4423,6 +4492,7 @@ void setup()                    // run once, when the sketch starts
   engine_off = engine_on = millis();
 
   OBDLCD.ClearPrintWarning_P(PSTR("OBDuino-Mega  v201"));
+  delay(1000);
   
 #if !defined( ELM ) && !defined(skip_ISO_Init)
   do // init loop
@@ -4516,7 +4586,11 @@ void setup()                    // run once, when the sketch starts
   static void DisplayLCDPIDS(char *str, char *str2)
 #endif 
 {
-#if defined useST7735 || defined useTFTLCD
+
+#if defined useTFTLCD
+
+#endif // useTFTLCD
+#if defined useST7735
   static uint8_t display_counter = 0;
   display_counter++;
   
@@ -4813,7 +4887,7 @@ void loop()                     // run over and over again
       analogWrite(BrightnessPin, brightness[brightnessIdx]);
     #endif
 
-    if (engineOffPeriod > (params.OutingStopOver * MINUTES_GRANULARITY * MILLIS_PER_MINUTE))
+    if (engineOffPeriod > (unsigned long)(params.OutingStopOver * MINUTES_GRANULARITY * MILLIS_PER_MINUTE))
     {
       //Reset the current outing trip from last trip
       trip_reset(OUTING, false);
@@ -4883,7 +4957,7 @@ void loop()                     // run over and over again
   #endif
 #else
   // Get touchscreen places.
-
+    test_touchscreen();
 #endif
 }
 
@@ -5018,37 +5092,54 @@ void params_save(void)
 
 void params_load(void)
 {
-  params_t params_tmp;
-  uint16_t crc, crc_calc;
-  byte *p;
+    params_t params_tmp;
+    uint16_t crc, crc_calc;
+    byte *p;
 
-  #ifdef AutoSave
+#ifdef AutoSave
     old_time_params = millis();
-  #endif  
+#endif
 
-  // read params
-  eeprom_read_block((void*)&params_tmp, (void*)0, sizeof(params_t));
-  // read crc
-  crc=eeprom_read_word((const uint16_t*)sizeof(params_t));
+    digitalWrite(LED_BUILTIN, HIGH);   // set the LED on
+    delay(1000);                  // wait for a second
+    digitalWrite(LED_BUILTIN, LOW);    // set the LED off
+    delay(1000);                  // wait for a second
+    digitalWrite(LED_BUILTIN, HIGH);   // set the LED on
+    delay(1000);                  // wait for a second
+    digitalWrite(LED_BUILTIN, LOW);    // set the LED off
+    delay(1000);                  // wait for a second
+    // read params
+    eeprom_read_block((void*) &params_tmp, (void*) 0, sizeof(params_t));
+    // read crc
+    crc = eeprom_read_word((const uint16_t*) sizeof(params_t));
 
-  // calculate crc from read stuff
-  crc_calc=0;
-  p=(byte*)&params_tmp;
-  for(byte i=0; i<sizeof(params_t); i++)
-    crc_calc+=p[i];
+    // calculate crc from read stuff
+    crc_calc = 0;
+    p = (byte*) &params_tmp;
+    for (byte i = 0; i < sizeof(params_t); i++)
+        crc_calc += p[i];
 
-  // compare CRC
-  if(crc==crc_calc)     // good, copy read params to params
-    params=params_tmp;
-    
+    // compare CRC
+    if (crc == crc_calc) {    // good, copy read params to params
+        params = params_tmp;
+        digitalWrite(LED_BUILTIN, HIGH);   // set the LED on
+        delay(1000);                  // wait for a second
+        digitalWrite(LED_BUILTIN, LOW);    // set the LED off
+        delay(1000);                  // wait for a second
+        digitalWrite(LED_BUILTIN, HIGH);   // set the LED on
+        delay(1000);                  // wait for a second
+        digitalWrite(LED_BUILTIN, LOW);    // set the LED off
+        delay(1000);                  // wait for a second
+    }
+
 #ifdef AllowChangeUnits
 #else
-  #ifdef UseSI
-    params.use_metric = 1;
-  #endif  
-  #ifdef UseUS
-    params.use_metric = 0;
-  #endif  
+    #ifdef UseSI
+        params.use_metric = 1;
+    #endif
+    #ifdef UseUS
+        params.use_metric = 0;
+    #endif
 #endif    
 }
 
@@ -5215,7 +5306,7 @@ void get_cost(char *retbuf, byte ctrip)
   unsigned long cents;
   unsigned long fuel;
   char decs[16];
-  params.gas_price;  // x/1000 = dollars
+//  params.gas_price;  // x/1000 = dollars
   fuel = params.trip[ctrip].fuel / 10000; //cL
   cents =  fuel * params.gas_price / 1000; //now have $$$$cc
   long_to_dec_str(cents, decs, 2);

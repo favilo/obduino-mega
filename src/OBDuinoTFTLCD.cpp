@@ -11,6 +11,8 @@
   ST7735 tft = ST7735(cs, dc, mosi, sclk, rst); 
 #endif
 
+void progmemPrint(const char *str);
+void progmemPrintln(const char *str);
 //--------------------------------------------------------------------------------
 
 OBDuinoLCD::OBDuinoLCD(void)
@@ -23,28 +25,41 @@ OBDuinoLCD::OBDuinoLCD(void)
 
 void OBDuinoLCD::InitOBDuinoLCD(void)
 {
-  SPI.setClockDivider(TFTInitSPISpeed);
+    SPI.setClockDivider(TFTInitSPISpeed);
 
-  #ifdef UseSoftwareReset
+#ifdef UseSoftwareReset
     pinMode(rstpin, OUTPUT);
+
+    digitalWrite(rstpin, HIGH);
+#endif
     
-    digitalWrite(rstpin, HIGH); 
-  #endif
+    //  tft.initR();               // initialize a ST7735R chip
+    tft.reset();
+    uint16_t identifier = tft.readID();
+    if (identifier == 0x9325) {
+      progmemPrintln(PSTR("Found ILI9325 LCD driver"));
+    } else if(identifier == 0x9328) {
+      progmemPrintln(PSTR("Found ILI9328 LCD driver"));
+    } else if(identifier == 0x7575) {
+      progmemPrintln(PSTR("Found HX8347G LCD driver"));
+    } else {
+      progmemPrint(PSTR("Unknown LCD driver chip: "));
+      Serial.println(identifier, HEX);
+      return;
+    }
 
-//  tft.initR();               // initialize a ST7735R chip
-  tft.reset();
-  uint16_t identifier = tft.readID();
-
-  tft.begin(identifier);
+    tft.begin(identifier);
 //  tft.writecommand(ST7735_DISPON);
 
-  #if TFTInitSPISpeed != TFTDataSPISpeed
+#if TFTInitSPISpeed != TFTDataSPISpeed
     SPI.setClockDivider(TFTDataSPISpeed);
-  #endif
-  
-  // Flip upside down. I have the screen mounted oddly
-  tft.setRotation(2);
-  tft.fillScreen(BackGroundColor); 
+#endif
+
+    // Flip upside down. I have the screen mounted oddly
+    tft.setRotation(2);
+    tft.setTextColor(CL_WHITE, BackGroundColor);
+    tft.setTextSize(2);
+    tft.fillScreen(BackGroundColor);
 }
 //--------------------------------------------------------------------------------
 
@@ -72,7 +87,7 @@ void OBDuinoLCD::PrintWarningChar(char c)
   if (tft_position >= LCD_COLS)
     return;
 
-  tft.drawChar(WarningPosition(tft_position, tft_row), c, CL_MAIN, BackGroundColor, 1);
+  tft.drawChar(WarningPosition(tft_position, tft_row), c, CL_MAIN, BackGroundColor, 2);
   tft_position++;
 }
 //--------------------------------------------------------------------------------
@@ -179,7 +194,7 @@ void OBDuinoLCD::LCDBar(byte Position, uint16_t Value, uint16_t MaxValue, char *
 void OBDuinoLCD::LCDNum(byte Position, char *string)
 { 
   byte Size     =   Position & 0x07;
-  byte Top      = ((Position & 0xF0) >> 4) * 9 + 9 + 2;
+//  byte Top      = ((Position & 0xF0) >> 4) * 9 + 9 + 2;
 
   char *output_str = string;
   
@@ -189,9 +204,9 @@ void OBDuinoLCD::LCDNum(byte Position, char *string)
     sprintf_P(output_str, PSTR("%7s"), string);
   }
   
-  byte Length = strlen(output_str);
+//  byte Length = strlen(output_str);
   
-  byte Left = 20 -                           // default
+//  byte Left = 20 -                           // default
               ((Size == 4) ? 6 : 0);         // for 2-3rd rows (small font)
 
   tft.print(string);
@@ -236,7 +251,18 @@ void OBDuinoLCD::SwitchDayNightMode(void)
 }
 //--------------------------------------------------------------------------------
 
-Adafruit_TFTLCD OBDuinoLCD::getTFT(void)
+Adafruit_TFTLCD* OBDuinoLCD::getTFT(void)
 {
-    return tft;
+    return &tft;
+}
+
+void progmemPrint(const char *str) {
+  char c;
+  while ( (c = pgm_read_byte(str++)) ) Serial.print(c);
+}
+
+// Same as above, with trailing newline
+void progmemPrintln(const char *str) {
+  progmemPrint(str);
+  Serial.println();
 }
