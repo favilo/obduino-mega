@@ -51,9 +51,9 @@
 #define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
 #endif 
 
-#define WarningPosition(x, y) x * 12, 175 + y * 16
+#define WarningPosition(x, y) x * 12, y * 16
 
-#define LCD_ROWS 3
+#define LCD_ROWS 4
 #define LCD_COLS 20
 #define LCD_SPLIT     (LCD_COLS / 2)
 #define LCD_PID_COUNT (LCD_ROWS * 2) 

@@ -82,6 +82,7 @@ void OBDuinoLCD::SetCursor(byte Position, byte Row)
 }
 //--------------------------------------------------------------------------------
 
+// Print a character on the first row of the screen. Above everything else.
 void OBDuinoLCD::PrintWarningChar(char c)
 {
   if (tft_position >= LCD_COLS)
@@ -119,13 +120,14 @@ void OBDuinoLCD::ClearPrintWarning_P(const char *string)
 
 void OBDuinoLCD::ClearWarning(void)
 {
-//  tft.setCursor(0,0);
-  for (tft_row = 0; tft_row < 2; tft_row++)
-    for (tft_position = 0; tft_position < LCD_COLS;)
+    tft.setCursor(0,0);
+//  for (tft_row = 0; tft_row < 2; tft_row++)
+    for (tft_position = 0; tft_position < LCD_COLS;) {
       PrintWarningChar(0x00);
-  
-  tft_row = 0;
-  tft_position = 0;
+    }
+
+    tft_row = 0;
+    tft_position = 0;
 }
 //--------------------------------------------------------------------------------
 

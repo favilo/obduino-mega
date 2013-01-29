@@ -966,16 +966,16 @@ params_t params=
          ,TANK_WASTE,TANK_COST,ENGINE_RPM,VEHICLE_SPEED
        #endif
        } },
-    { {FUEL_CONS,NO_DISPLAY,NO_DISPLAY,NO_DISPLAY
-       #if LCD_ROWS == 4
-         ,NO_DISPLAY,NO_DISPLAY,NO_DISPLAY,NO_DISPLAY
-       #endif
-       } },      
-    { {ENGINE_RPM,FUEL_CONS,NO_DISPLAY,NO_DISPLAY
-       #if LCD_ROWS == 4
-         ,NO_DISPLAY,NO_DISPLAY,NO_DISPLAY,NO_DISPLAY
-       #endif
-       } }      
+//    { {FUEL_CONS,NO_DISPLAY,NO_DISPLAY,NO_DISPLAY
+//       #if LCD_ROWS == 4
+//         ,NO_DISPLAY,NO_DISPLAY,NO_DISPLAY,NO_DISPLAY
+//       #endif
+//       } },
+//    { {ENGINE_RPM,FUEL_CONS,NO_DISPLAY,NO_DISPLAY
+//       #if LCD_ROWS == 4
+//         ,NO_DISPLAY,NO_DISPLAY,NO_DISPLAY,NO_DISPLAY
+//       #endif
+//       } }
   },
   0, //BigFontType
   0 //MetricDisplayType
@@ -1171,7 +1171,7 @@ byte elm_read(char *str, byte size)
   byte i=0;
 
   // wait for something on com port
-  while((b=Serial1.read())!=PROMPT && i<size)
+  while((b=ELM_PORT.read())!=PROMPT && i<size)
   {
     if(/*b!=-1 &&*/ b>=' ')
       str[i++]=b;
@@ -1190,7 +1190,7 @@ byte elm_read(char *str, byte size)
 void elm_write(char *str)
 {
   while(*str!=NUL)
-    Serial1.write(*str++);
+    ELM_PORT.write(*str++);
 }
 
 // check header byte
@@ -1237,8 +1237,10 @@ void elm_init()
   char str[STRLEN];
 #endif
 
-  Serial1.begin(9600);
-  Serial1.flush();
+  ELM_PORT.begin(9600);
+  // This is no longer needed with Arduino 1.0
+  // We just need to call ELM_PORT.available()
+//  ELM_PORT.flush();
 
 #ifndef DEBUG
   // reset, wait for something and display it
@@ -3225,36 +3227,34 @@ void show_mil_codes(byte Mode, bool Silent)
 
 void get_mil_code_count(bool Silent, byte *count)
 {
-  unsigned long n;
+    unsigned long n;
 //  byte nb;
 
 #ifndef ELM
-  Serial.flush();
+    Serial.flush();
 #endif
 
-  *count = 0;
-  if (!get_pid(MIL_CODE, tempStr, &tempLong))
-    return;  // Invalid return so abort 
-  
-  n = (unsigned long) tempLong;
-  
-  if (1L<<31 & n)
-  {
-    // we have MIL on
-    *count = (n>>24) & 0x7F;
-    OBDLCD.ClearPrintWarning_P(PSTR("CHECK ENGINE ON"));
-    OBDLCD.SetCursor(0,1);
-    sprintf_P(tempStr, PSTR("%d CODE(S) IN ECU"), *count);
-    OBDLCD.PrintWarning(tempStr);
-    delay(1500);
-    OBDLCD.ClearWarning();  
-  }  
-  else
-    if (!Silent)
-    {
-      OBDLCD.ClearPrintWarning_P(PSTR("No DTC codes"));
-      delay(1500);
-    }  
+    *count = 0;
+    if (!get_pid(MIL_CODE, tempStr, &tempLong))
+        return;  // Invalid return so abort
+
+    n = (unsigned long) tempLong;
+
+    if (1L << 31 & n) {
+        // we have MIL on
+        *count = (n >> 24) & 0x7F;
+        OBDLCD.ClearPrintWarning_P(PSTR("CHECK ENGINE ON"));
+        OBDLCD.SetCursor(0, 1);
+        sprintf_P(tempStr, PSTR("%d CODE(S) IN ECU"), *count);
+        OBDLCD.PrintWarning(tempStr);
+        delay(1500);
+        OBDLCD.ClearWarning();
+    } else {
+        if (!Silent) {
+            OBDLCD.ClearPrintWarning_P(PSTR("No DTC codes"));
+            delay(1500);
+        }
+    }
 }
 
 void clear_mil_code(void)
@@ -3266,12 +3266,12 @@ void clear_mil_code(void)
   byte count;
   get_mil_code_count(false, &count);
 
-  // Clear codes always. If no MIL is iluminated, clearing codes still clears Long time fuel trim.
+  // Clear codes always. If no MIL is illuminated, clearing codes still clears Long time fuel trim.
   
   OBDLCD.ClearPrintWarning_P(PSTR("Clearing codes..."));
   
 #ifdef ELM
-  //Need some code to work :)
+  //FIXME: Actually clear the codes.
   delay(1000);
   OBDLCD.ClearWarning();
 #else

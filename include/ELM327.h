@@ -460,12 +460,12 @@ class Elm327
 		byte acceleratorPedalPositionE(byte &position);
 		byte acceleratorPedalPositionF(byte &position);
 		byte commandedThrottleActuator(byte &position);
+		byte getBytes( const char *mode, const char *chkMode, const char *pid, byte *values, unsigned int numValues);
+		byte runCommand(const char *cmd, char *data, unsigned int dataLength);
 	private:
 		byte o2WRVoltage(const char *sensor, unsigned int &equivRatio, unsigned int &voltage);
 		byte o2WRCurrent(const char *sensor, unsigned int &equivRatio, int &current);
 		byte catTemperature(const char *sensor, int &temperature);
-		byte getBytes( const char *mode, const char *chkMode, const char *pid, byte *values, unsigned int numValues);
-		byte runCommand(const char *cmd, char *data, unsigned int dataLength);
 		bool getBit(byte b, byte p);
 		byte getFuelTrim(const char *pid, int &percent);
 		void flush();
