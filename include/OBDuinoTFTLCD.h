@@ -110,6 +110,10 @@ class OBDuinoLCD
     void ClearPrintWarning_P(const char *string);
     void ClearWarning(void);
 
+    void DrawDisplayItem(const char * string, byte location);
+    void DrawMenu(const char * const menu[], byte arraySize);
+    void DrawBottomSelections();
+
     // Additional functions
     void LCDBar(byte Position, uint16_t Value, uint16_t MaxValue, char *string);
     void LCDNum(byte Position, char *string);

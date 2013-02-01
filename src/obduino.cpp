@@ -476,6 +476,9 @@ boolean displaySecondLine(byte position, char * str);
 #define BUTTON_DELAY 100   // Not in use any more. Was 125, but 100 works better
 #define MENU_TIMEOUT 10000 // Wait 10s and close config menu if no key is pressed
 
+#define CONVERT_TO_GALLONS(l)   ( (l*100L) / 378L )
+
+
 #ifdef UseOutsideTemperatureSensor
   #define OutsideTemperaturePin 15 // Inside temperature sensor, on analog 1
 #endif
@@ -2567,12 +2570,12 @@ void get_fuel(char *retbuf, byte ctrip)
   // convert in gallon if requested
 #ifdef AllowChangeUnits
   if(!params.use_metric)
-    cfuel = (cfuel * 100L) / 378L;//convertToGallons(cfuel);
+    cfuel = CONVERT_TO_GALLONS(cfuel);//convertToGallons(cfuel);
 #else
   #ifdef UseSI
   #endif  
   #ifdef UseUS
-    cfuel = (cfuel * 100L) / 378L;//convertToGallons(cfuel);
+    cfuel = CONVERT_TO_GALLONS(cfuel);//convertToGallons(cfuel);
   #endif  
 #endif
 
@@ -2605,12 +2608,12 @@ void get_waste(char *retbuf, byte ctrip)
   // convert in gallon if requested
 #ifdef AllowChangeUnits
   if(!params.use_metric)
-    cfuel = (cfuel * 100L) / 378L;//convertToGallons(cfuel);
+    cfuel = CONVERT_TO_GALLONS(cfuel);//convertToGallons(cfuel);
 #else
   #ifdef UseSI
   #endif  
   #ifdef UseUS
-    cfuel = (cfuel * 100L) / 378L;//convertToGallons(cfuel);
+    cfuel = CONVERT_TO_GALLONS(cfuel);//convertToGallons(cfuel);
   #endif  
 #endif
 
@@ -3021,7 +3024,7 @@ void get_pid_internal(char *str, byte pid)
     #ifndef DEBUG // This will freeze up if I don't supply anything through the serial line.
       elm_command(str, PSTR("ATRV\r"));
     #else
-      strcpy_P(str, PSTR("111"));
+      strcpy_P(str, PSTR("126"));
     #endif
   else if(pid==CAN_STATUS)
     elm_command(str, PSTR("ATCS\r"));
@@ -3675,7 +3678,7 @@ void config_menu(void)
           }
           else
           {
-            fuelUnits = params.tank_size * 100L / 378L;//convertToGallons(params.tank_size);
+            fuelUnits = CONVERT_TO_GALLONS(params.tank_size);//convertToGallons(params.tank_size);
             OBDLCD.PrintWarning_P(PSTR("G)"));
           }
         #else
@@ -3683,7 +3686,7 @@ void config_menu(void)
             OBDLCD.PrintWarning_P(PSTR("L)"));
           #endif  
           #ifdef UseUS
-            fuelUnits = params.tank_size * 100L / 378L;//convertToGallons(params.tank_size);
+            fuelUnits = CONVERT_TO_GALLONS(params.tank_size);//convertToGallons(params.tank_size);
             OBDLCD.PrintWarning_P(PSTR("G)"));
           #endif  
         #endif
@@ -3812,12 +3815,12 @@ void config_menu(void)
           {
           #ifdef AllowChangeUnits
             if(!params.use_metric)
-              fuelUnits = (fuelUnits * 100L) / 378L; //convertToGallons(fuelUnits);
+              fuelUnits = CONVERT_TO_GALLONS(fuelUnits); //convertToGallons(fuelUnits);
           #else
             #ifdef UseSI
             #endif  
             #ifdef UseUS
-              fuelUnits = (fuelUnits * 100L) / 378L; //convertToGallons(fuelUnits);
+              fuelUnits = CONVERT_TO_GALLONS(fuelUnits); //convertToGallons(fuelUnits);
             #endif  
           #endif
 
@@ -3934,7 +3937,7 @@ void config_menu(void)
           }
           else
           {
-            tankUnits = params.trip[0].fuel * 100L / 378L; //convertToGallons(params.trip[0].fuel / 1000 / 100); // converted from uL to dL
+            tankUnits = CONVERT_TO_GALLONS(params.trip[0].fuel); //convertToGallons(params.trip[0].fuel / 1000 / 100); // converted from uL to dL
             OBDLCD.PrintWarning_P(PSTR("G)"));
           }
         #else
@@ -3942,7 +3945,7 @@ void config_menu(void)
             OBDLCD.PrintWarning_P(PSTR("L)"));
           #endif  
           #ifdef UseUS
-            tankUnits = params.trip[0].fuel * 100L / 378L; //convertToGallons(params.trip[0].fuel / 1000 / 100); // converted from uL to dL
+            tankUnits = CONVERT_TO_GALLONS(params.trip[0].fuel); //convertToGallons(params.trip[0].fuel / 1000 / 100); // converted from uL to dL
             OBDLCD.PrintWarning_P(PSTR("G)"));
           #endif  
         #endif
@@ -5143,7 +5146,7 @@ void params_load(void)
 #endif    
 }
 
-#ifdef DEBUG  // how can this takes 578 bytes!!
+#if defined DEBUG  // how can this takes 578 bytes!!
 // this function will return the number of bytes currently free in RAM
 // there is about 670 bytes free in memory when OBDuino is running
 extern int  __bss_end;
@@ -5159,9 +5162,9 @@ int memoryTest(void)
 }
 #endif
 
-char fBuff[7];//used by format
 char *format(unsigned long num)
 {
+  static char fBuff[7];//used by format
   byte dp = 3;
 
   while (num > 999999)
@@ -5259,6 +5262,18 @@ void eco_visual(char *retbuf) {
   sprintf_P(retbuf, PSTR("%s"), (char*)pgm_read_word(&(econ_Visual[stars])));
 }
 
+void convert_to_time(char * retbuf, unsigned long time)
+{
+    int hours, minutes, seconds;  //to store the time
+
+      hours   = (time / MILLIS_PER_HOUR);
+      minutes = (time % MILLIS_PER_HOUR)   / MILLIS_PER_MINUTE;
+      seconds = (time % MILLIS_PER_MINUTE) / MILLIS_PER_SECOND;
+
+      //Now we have our variables parsed, lets display them
+      sprintf_P(retbuf, PSTR("%d:%02d:%02d"), hours, minutes, seconds);
+}
+
 //get_trip_time will return trip driving or idling
 void get_trip_time(char *retbuf, byte trip, byte time)
 {
@@ -5266,21 +5281,13 @@ void get_trip_time(char *retbuf, byte trip, byte time)
   if (time == 1) 
     run_time = params.tripmax[trip].timeidling;
     
-  int hours, minutes, seconds;  //to store the time
-
-  hours   = (run_time / MILLIS_PER_HOUR);
-  minutes = (run_time % MILLIS_PER_HOUR)   / MILLIS_PER_MINUTE;
-  seconds = (run_time % MILLIS_PER_MINUTE) / MILLIS_PER_SECOND;
-
-  //Now we have our varriables parsed, lets display them
-  sprintf_P(retbuf, PSTR("%d:%02d:%02d"), hours, minutes, seconds);
+  convert_to_time(retbuf, run_time);
 }
 
 //get_engine_on_time will return the time since the engine has started
 void get_engine_on_time(char *retbuf)
 {
   unsigned long run_time;
-  int hours, minutes, seconds;  //to store the time
 
 #ifdef useECUState
   if (ECUconnection) {//update with current time, if the car is running
@@ -5291,14 +5298,8 @@ void get_engine_on_time(char *retbuf)
   } else { //car is not running.  Display final time when stopped.
     run_time = calcTimeDiff(engine_on, engine_off);
   }
-  //Lets display the running time
-  //hh:mm:ss
-  hours   = (run_time / MILLIS_PER_HOUR);
-  minutes = (run_time % MILLIS_PER_HOUR)   / MILLIS_PER_MINUTE;
-  seconds = (run_time % MILLIS_PER_MINUTE) / MILLIS_PER_SECOND;
 
-  //Now we have our varriables parsed, lets display them
-  sprintf_P(retbuf, PSTR("%d:%02d:%02d"), hours, minutes, seconds);
+  convert_to_time(retbuf, run_time);
 }
 
 void get_cost(char *retbuf, byte ctrip)
